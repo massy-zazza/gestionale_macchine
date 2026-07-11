@@ -13,7 +13,7 @@ Questa cartella contiene sia la web app Next.js locale completa sia la versione 
 - `src/`: applicazione Next.js locale
 - `prisma/`: schema SQLite locale e seed demo
 - `supabase/schema.sql`: schema Postgres per Supabase
-- `supabase/seed.sql`: dati demo
+- `supabase/seed.sql`: categorie base e BMW 116i 2015 inizializzata a zero
 - `.streamlit/secrets.toml.example`: template secrets
 
 ## Avvio Next.js locale
@@ -33,6 +33,7 @@ Nel progetto Supabase apri SQL Editor ed esegui:
 2. `supabase/seed.sql`
 
 Lo schema abilita RLS su tutte le tabelle e usa la service role key solo lato server Streamlit.
+Il seed non inserisce spese, rifornimenti, manutenzioni, chilometraggi o promemoria: l'app parte a zero.
 
 ## Secrets Streamlit
 

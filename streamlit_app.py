@@ -15,7 +15,11 @@ st.set_page_config(page_title="Gestionale Macchine", page_icon="auto", layout="w
 
 
 def get_secret(name: str) -> str:
-    return st.secrets.get(name) or os.environ.get(name, "")
+    try:
+        value = st.secrets.get(name)
+    except Exception:
+        value = None
+    return value or os.environ.get(name, "")
 
 
 def cents_to_euro(cents: int | float | None) -> float:
