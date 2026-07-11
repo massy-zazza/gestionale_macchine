@@ -37,6 +37,10 @@ def price_to_milli_cents(value: float | int) -> int:
     return int(round(float(value) * 100000))
 
 
+def fuel_price_per_liter(total: float | int, liters: float | int) -> float:
+    return float(total) / float(liters) if float(liters) > 0 else 0
+
+
 def money(cents: int | float | None) -> str:
     return f"EUR {cents_to_euro(cents):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -325,11 +329,12 @@ def refuels_page(data: dict[str, pd.DataFrame], vehicle: dict[str, Any]) -> None
         liters = c3.number_input("Litri", min_value=0.1, step=0.1)
         total = c4.number_input("Importo EUR", min_value=0.01, step=0.01)
         c1, c2, c3, c4 = st.columns(4)
-        default_price = max(0.2, float(total / liters if liters else 1.8))
-        price = c1.number_input("Prezzo/l", min_value=0.2, value=default_price, step=0.001, format="%.3f")
+        price = fuel_price_per_liter(total, liters)
+        c1.metric("Prezzo/l automatico", f"EUR {price:.3f}/l")
         station = c2.text_input("Distributore")
         location = c3.text_input("Localita")
-        full_tank = c4.checkbox("Pieno completo", value=True)
+        payment_method = c4.text_input("Carta/metodo pagamento")
+        full_tank = st.checkbox("Pieno completo", value=True)
         notes = st.text_input("Note")
         if st.form_submit_button("Salva rifornimento", type="primary"):
             error = validate_mileage(data, vehicle["id"], int(odometer))
@@ -347,6 +352,7 @@ def refuels_page(data: dict[str, pd.DataFrame], vehicle: dict[str, Any]) -> None
                     "station": station,
                     "location": location,
                     "full_tank": full_tank,
+                    "payment_method": payment_method.strip() or "CARTA",
                     "notes": notes,
                 }
                 insert("refuels", payload)
@@ -354,7 +360,7 @@ def refuels_page(data: dict[str, pd.DataFrame], vehicle: dict[str, Any]) -> None
                 update_vehicle_mileage(vehicle["id"], int(odometer))
                 st.success("Rifornimento salvato.")
                 st.rerun()
-    show_table(data["refuels"], {"total_cents": "money", "liters_ml": "liters"})
+    show_table(data["refuels"], {"total_cents": "money", "liters_ml": "liters", "price_per_liter_milli_cents": "fuel_price"})
     deleted = delete_record_box("Elimina rifornimento", data["refuels"], "refuels", ["date", "odometer_km", "station"], "delete_refuel")
     if deleted:
         delete_mileage_record(deleted["vehicle_id"], deleted["date"], int(deleted["odometer_km"]), "RIFORNIMENTO")
@@ -371,7 +377,9 @@ def expenses_page(data: dict[str, pd.DataFrame], vehicle: dict[str, Any]) -> Non
         category_name = c2.selectbox("Categoria", categories["name"].tolist() if not categories.empty else ["altre spese"])
         description = c3.text_input("Descrizione")
         amount = c4.number_input("Importo EUR", min_value=0.01, step=0.01)
-        supplier = st.text_input("Fornitore")
+        c1, c2 = st.columns(2)
+        supplier = c1.text_input("Fornitore")
+        payment_method = c2.text_input("Carta/metodo pagamento")
         notes = st.text_input("Note", key="expense_notes")
         if st.form_submit_button("Salva spesa", type="primary"):
             if not description.strip():
@@ -384,6 +392,7 @@ def expenses_page(data: dict[str, pd.DataFrame], vehicle: dict[str, Any]) -> Non
                     "date": datetime.combine(expense_date, datetime.min.time()).isoformat(),
                     "description": description.strip(),
                     "amount_cents": euro_to_cents(amount),
+                    "payment_method": payment_method.strip() or "CARTA",
                     "supplier": supplier,
                     "notes": notes,
                 })
@@ -496,6 +505,8 @@ def show_table(df: pd.DataFrame, format_cols: dict[str, str]) -> None:
             view[col] = view[col].map(money)
         if kind == "liters":
             view[col] = view[col].map(lambda value: f"{int(value) / 1000:.2f}")
+        if kind == "fuel_price":
+            view[col] = view[col].map(lambda value: f"EUR {int(value) / 100000:.3f}/l")
     st.dataframe(view, width="stretch", hide_index=True)
 
 
