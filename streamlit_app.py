@@ -92,8 +92,29 @@ def insert(table: str, payload: dict[str, Any]) -> dict[str, Any] | None:
     return result[0] if result else None
 
 
+def delete_by_id(table: str, row_id: str) -> None:
+    supabase_client().table(table).delete().eq("id", row_id).execute()
+    st.cache_data.clear()
+
+
+def delete_mileage_record(vehicle_id: str, date_value: str, odometer_km: int, source: str) -> None:
+    supabase_client().table("mileage_records").delete().eq("vehicle_id", vehicle_id).eq("date", date_value).eq("odometer_km", odometer_km).eq("source", source).execute()
+    st.cache_data.clear()
+
+
 def update_vehicle_mileage(vehicle_id: str, odometer_km: int) -> None:
     supabase_client().table("vehicles").update({"current_mileage_km": odometer_km}).eq("id", vehicle_id).execute()
+
+
+def recompute_vehicle_mileage(vehicle_id: str) -> None:
+    mileage_rows = supabase_client().table("mileage_records").select("odometer_km").eq("vehicle_id", vehicle_id).execute().data or []
+    if mileage_rows:
+        odometer_km = max(int(row["odometer_km"]) for row in mileage_rows)
+    else:
+        vehicle_rows = supabase_client().table("vehicles").select("initial_mileage_km").eq("id", vehicle_id).execute().data or []
+        odometer_km = int(vehicle_rows[0].get("initial_mileage_km") or 0) if vehicle_rows else 0
+    update_vehicle_mileage(vehicle_id, odometer_km)
+    st.cache_data.clear()
 
 
 def active_vehicle(data: dict[str, pd.DataFrame]) -> dict[str, Any] | None:
@@ -265,6 +286,36 @@ def monthly_costs(refuels: pd.DataFrame, expenses: pd.DataFrame, maintenances: p
     return pivot.sort_values("mese")
 
 
+def row_text(row: dict[str, Any], fields: list[str]) -> str:
+    values = []
+    for field in fields:
+        value = row.get(field)
+        if value is None or value == "":
+            continue
+        if field == "date":
+            value = str(value)[:10]
+        values.append(str(value))
+    return " - ".join(values) or str(row.get("id", "record"))
+
+
+def delete_record_box(title: str, df: pd.DataFrame, table: str, label_fields: list[str], key: str, protected_ids: set[str] | None = None) -> dict[str, Any] | None:
+    if df.empty:
+        return None
+    protected_ids = protected_ids or set()
+    records = [row for row in df.to_dict("records") if row.get("id") not in protected_ids]
+    if not records:
+        return None
+    st.subheader(title)
+    options = {row_text(row, label_fields): row for row in records}
+    choice = st.selectbox("Record da eliminare", list(options.keys()), key=f"{key}_select")
+    if st.button("Elimina", key=f"{key}_delete", type="secondary"):
+        row = options[choice]
+        delete_by_id(table, row["id"])
+        st.success("Record eliminato.")
+        return row
+    return None
+
+
 def refuels_page(data: dict[str, pd.DataFrame], vehicle: dict[str, Any]) -> None:
     st.subheader("Nuovo rifornimento")
     with st.form("refuel_form"):
@@ -304,6 +355,11 @@ def refuels_page(data: dict[str, pd.DataFrame], vehicle: dict[str, Any]) -> None
                 st.success("Rifornimento salvato.")
                 st.rerun()
     show_table(data["refuels"], {"total_cents": "money", "liters_ml": "liters"})
+    deleted = delete_record_box("Elimina rifornimento", data["refuels"], "refuels", ["date", "odometer_km", "station"], "delete_refuel")
+    if deleted:
+        delete_mileage_record(deleted["vehicle_id"], deleted["date"], int(deleted["odometer_km"]), "RIFORNIMENTO")
+        recompute_vehicle_mileage(deleted["vehicle_id"])
+        st.rerun()
 
 
 def expenses_page(data: dict[str, pd.DataFrame], vehicle: dict[str, Any]) -> None:
@@ -318,19 +374,25 @@ def expenses_page(data: dict[str, pd.DataFrame], vehicle: dict[str, Any]) -> Non
         supplier = st.text_input("Fornitore")
         notes = st.text_input("Note", key="expense_notes")
         if st.form_submit_button("Salva spesa", type="primary"):
-            category_id = categories.loc[categories["name"] == category_name, "id"].iloc[0]
-            insert("expenses", {
-                "vehicle_id": vehicle["id"],
-                "category_id": category_id,
-                "date": datetime.combine(expense_date, datetime.min.time()).isoformat(),
-                "description": description,
-                "amount_cents": euro_to_cents(amount),
-                "supplier": supplier,
-                "notes": notes,
-            })
-            st.success("Spesa salvata.")
-            st.rerun()
+            if not description.strip():
+                st.error("Inserisci una descrizione.")
+            else:
+                category_id = categories.loc[categories["name"] == category_name, "id"].iloc[0]
+                insert("expenses", {
+                    "vehicle_id": vehicle["id"],
+                    "category_id": category_id,
+                    "date": datetime.combine(expense_date, datetime.min.time()).isoformat(),
+                    "description": description.strip(),
+                    "amount_cents": euro_to_cents(amount),
+                    "supplier": supplier,
+                    "notes": notes,
+                })
+                st.success("Spesa salvata.")
+                st.rerun()
     show_table(data["expenses"], {"amount_cents": "money"})
+    deleted = delete_record_box("Elimina spesa", data["expenses"], "expenses", ["date", "description", "supplier"], "delete_expense")
+    if deleted:
+        st.rerun()
 
 
 def maintenance_page(data: dict[str, pd.DataFrame], vehicle: dict[str, Any]) -> None:
@@ -347,13 +409,15 @@ def maintenance_page(data: dict[str, pd.DataFrame], vehicle: dict[str, Any]) -> 
             error = validate_mileage(data, vehicle["id"], int(odometer))
             if error:
                 st.error(error)
+            elif not kind.strip() or not description.strip():
+                st.error("Inserisci tipo e descrizione.")
             else:
                 payload = {
                     "vehicle_id": vehicle["id"],
                     "date": datetime.combine(maintenance_date, datetime.min.time()).isoformat(),
                     "odometer_km": int(odometer),
-                    "type": kind,
-                    "description": description,
+                    "type": kind.strip(),
+                    "description": description.strip(),
                     "workshop": workshop,
                     "cost_cents": euro_to_cents(cost),
                 }
@@ -363,6 +427,11 @@ def maintenance_page(data: dict[str, pd.DataFrame], vehicle: dict[str, Any]) -> 
                 st.success("Manutenzione salvata.")
                 st.rerun()
     show_table(data["maintenances"], {"cost_cents": "money"})
+    deleted = delete_record_box("Elimina manutenzione", data["maintenances"], "maintenances", ["date", "odometer_km", "type"], "delete_maintenance")
+    if deleted:
+        delete_mileage_record(deleted["vehicle_id"], deleted["date"], int(deleted["odometer_km"]), "MANUTENZIONE")
+        recompute_vehicle_mileage(deleted["vehicle_id"])
+        st.rerun()
 
 
 def reminders_page(data: dict[str, pd.DataFrame], vehicle: dict[str, Any]) -> None:
@@ -375,17 +444,23 @@ def reminders_page(data: dict[str, pd.DataFrame], vehicle: dict[str, Any]) -> No
         expected = c4.number_input("Importo previsto EUR", min_value=0.0, step=0.01)
         status = st.selectbox("Stato", ["FUTURA", "PROSSIMA", "SCADUTA", "COMPLETATA"])
         if st.form_submit_button("Salva scadenza", type="primary"):
-            insert("reminders", {
-                "vehicle_id": vehicle["id"],
-                "title": title,
-                "due_date": due_date.isoformat(),
-                "due_mileage_km": int(due_km) if due_km else None,
-                "expected_cents": euro_to_cents(expected) if expected else None,
-                "status": status,
-            })
-            st.success("Scadenza salvata.")
-            st.rerun()
+            if not title.strip():
+                st.error("Inserisci un titolo.")
+            else:
+                insert("reminders", {
+                    "vehicle_id": vehicle["id"],
+                    "title": title.strip(),
+                    "due_date": due_date.isoformat(),
+                    "due_mileage_km": int(due_km) if due_km else None,
+                    "expected_cents": euro_to_cents(expected) if expected else None,
+                    "status": status,
+                })
+                st.success("Scadenza salvata.")
+                st.rerun()
     show_table(data["reminders"], {"expected_cents": "money"})
+    deleted = delete_record_box("Elimina scadenza", data["reminders"], "reminders", ["due_date", "title", "status"], "delete_reminder")
+    if deleted:
+        st.rerun()
 
 
 def settings_page(data: dict[str, pd.DataFrame]) -> None:
@@ -398,8 +473,15 @@ def settings_page(data: dict[str, pd.DataFrame]) -> None:
         plate = c3.text_input("Targa")
         fuel_type = c4.selectbox("Alimentazione", ["BENZINA", "DIESEL", "GPL", "METANO", "ELETTRICO", "IBRIDO"])
         if st.form_submit_button("Aggiungi auto"):
-            insert("vehicles", {"make": make, "model": model, "plate": plate, "fuel_type": fuel_type, "is_active": data["vehicles"].empty})
-            st.rerun()
+            if not make.strip() or not model.strip():
+                st.error("Inserisci marca e modello.")
+            else:
+                insert("vehicles", {"make": make.strip(), "model": model.strip(), "plate": plate.strip(), "fuel_type": fuel_type, "is_active": data["vehicles"].empty})
+                st.rerun()
+    protected = {active_vehicle(data)["id"]} if active_vehicle(data) else set()
+    deleted = delete_record_box("Elimina veicolo aggiunto", data["vehicles"], "vehicles", ["make", "model", "plate"], "delete_vehicle", protected_ids=protected)
+    if deleted:
+        st.rerun()
 
 
 def show_table(df: pd.DataFrame, format_cols: dict[str, str]) -> None:
