@@ -6,7 +6,6 @@ from datetime import date, datetime
 from typing import Any
 
 import pandas as pd
-import plotly.express as px
 import streamlit as st
 from supabase import Client, create_client
 
@@ -202,14 +201,14 @@ def dashboard(data: dict[str, pd.DataFrame]) -> None:
         st.subheader("Spese per categoria")
         category_df = category_totals(refuels, expenses, maintenances, categories)
         if not category_df.empty:
-            st.plotly_chart(px.pie(category_df, names="categoria", values="euro"), width="stretch")
+            st.bar_chart(category_df, x="categoria", y="euro", horizontal=True)
         else:
             st.info("Nessun dato.")
     with right:
         st.subheader("Spese mensili")
         monthly = monthly_costs(refuels, expenses, maintenances)
         if not monthly.empty:
-            st.plotly_chart(px.bar(monthly, x="mese", y=["totale", "carburante"], barmode="group"), width="stretch")
+            st.bar_chart(monthly, x="mese", y=["totale", "carburante"])
         else:
             st.info("Nessun dato.")
 
@@ -218,7 +217,7 @@ def dashboard(data: dict[str, pd.DataFrame]) -> None:
         price = refuels.copy()
         price["mese"] = price["date"].dt.strftime("%Y-%m")
         price = price.groupby("mese", as_index=False).agg(prezzo=("price_per_liter_milli_cents", lambda s: s.mean() / 100000))
-        st.plotly_chart(px.line(price, x="mese", y="prezzo", markers=True), width="stretch")
+        st.line_chart(price, x="mese", y="prezzo")
 
 
 def sum_month(df: pd.DataFrame, column: str, now: pd.Timestamp) -> int:
