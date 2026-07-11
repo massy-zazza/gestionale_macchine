@@ -198,14 +198,14 @@ def dashboard(data: dict[str, pd.DataFrame]) -> None:
         st.subheader("Spese per categoria")
         category_df = category_totals(refuels, expenses, maintenances, categories)
         if not category_df.empty:
-            st.plotly_chart(px.pie(category_df, names="categoria", values="euro"), use_container_width=True)
+            st.plotly_chart(px.pie(category_df, names="categoria", values="euro"), width="stretch")
         else:
             st.info("Nessun dato.")
     with right:
         st.subheader("Spese mensili")
         monthly = monthly_costs(refuels, expenses, maintenances)
         if not monthly.empty:
-            st.plotly_chart(px.bar(monthly, x="mese", y=["totale", "carburante"], barmode="group"), use_container_width=True)
+            st.plotly_chart(px.bar(monthly, x="mese", y=["totale", "carburante"], barmode="group"), width="stretch")
         else:
             st.info("Nessun dato.")
 
@@ -214,7 +214,7 @@ def dashboard(data: dict[str, pd.DataFrame]) -> None:
         price = refuels.copy()
         price["mese"] = price["date"].dt.strftime("%Y-%m")
         price = price.groupby("mese", as_index=False).agg(prezzo=("price_per_liter_milli_cents", lambda s: s.mean() / 100000))
-        st.plotly_chart(px.line(price, x="mese", y="prezzo", markers=True), use_container_width=True)
+        st.plotly_chart(px.line(price, x="mese", y="prezzo", markers=True), width="stretch")
 
 
 def sum_month(df: pd.DataFrame, column: str, now: pd.Timestamp) -> int:
@@ -271,7 +271,7 @@ def refuels_page(data: dict[str, pd.DataFrame], vehicle: dict[str, Any]) -> None
         liters = c3.number_input("Litri", min_value=0.1, step=0.1)
         total = c4.number_input("Importo EUR", min_value=0.01, step=0.01)
         c1, c2, c3, c4 = st.columns(4)
-        default_price = float(total / liters if liters else 1.8)
+        default_price = max(0.2, float(total / liters if liters else 1.8))
         price = c1.number_input("Prezzo/l", min_value=0.2, value=default_price, step=0.001, format="%.3f")
         station = c2.text_input("Distributore")
         location = c3.text_input("Localita")
@@ -411,7 +411,7 @@ def show_table(df: pd.DataFrame, format_cols: dict[str, str]) -> None:
             view[col] = view[col].map(money)
         if kind == "liters":
             view[col] = view[col].map(lambda value: f"{int(value) / 1000:.2f}")
-    st.dataframe(view, use_container_width=True, hide_index=True)
+    st.dataframe(view, width="stretch", hide_index=True)
 
 
 def main() -> None:
