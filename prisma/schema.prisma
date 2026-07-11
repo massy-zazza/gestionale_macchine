@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Vehicle {
+  id                 String   @id @default(cuid())
+  make               String
+  model              String
+  version            String?
+  plate              String?
+  year               Int?
+  fuelType           String   @default("BENZINA")
+  purchaseDate       DateTime?
+  purchasePriceCents Int?
+  initialMileageKm   Int      @default(0)
+  currentMileageKm   Int      @default(0)
+  tankCapacityLiters Float?
+  notes              String?
+  isActive           Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  refuels            Refuel[]
+  expenses           Expense[]
+  maintenances       Maintenance[]
+  mileageRecords     MileageRecord[]
+  reminders          Reminder[]
+}
+
+model ExpenseCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String
+  isDefault Boolean  @default(false)
+  isFuel    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  expenses  Expense[]
+}
+
+model Refuel {
+  id                      String   @id @default(cuid())
+  vehicleId               String
+  date                    DateTime
+  odometerKm              Int
+  litersMl                Int
+  totalCents              Int
+  pricePerLiterMilliCents Int
+  fuelType                String   @default("BENZINA")
+  station                 String?
+  location                String?
+  fullTank                Boolean  @default(true)
+  paymentMethod           String   @default("CARTA")
+  notes                   String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  vehicle                 Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId, date])
+}
+
+model Expense {
+  id            String          @id @default(cuid())
+  vehicleId     String
+  categoryId    String
+  date          DateTime
+  description   String
+  amountCents   Int
+  paymentMethod String          @default("CARTA")
+  odometerKm    Int?
+  supplier      String?
+  notes         String?
+  isRecurring   Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  vehicle       Vehicle         @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  category      ExpenseCategory @relation(fields: [categoryId], references: [id])
+
+  @@index([vehicleId, date])
+}
+
+model Maintenance {
+  id               String   @id @default(cuid())
+  vehicleId        String
+  date             DateTime
+  odometerKm       Int
+  type             String
+  description      String
+  workshop         String?
+  costCents        Int      @default(0)
+  replacedParts    String?
+  nextDueDate      DateTime?
+  nextDueMileageKm Int?
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  vehicle          Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+}
+
+model MileageRecord {
+  id         String   @id @default(cuid())
+  vehicleId  String
+  date       DateTime
+  odometerKm Int
+  source     String
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  vehicle    Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+}
+
+model Reminder {
+  id            String   @id @default(cuid())
+  vehicleId     String
+  title         String
+  dueDate       DateTime
+  dueMileageKm  Int?
+  periodicity   String   @default("NESSUNA")
+  expectedCents Int?
+  status        String   @default("FUTURA")
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  vehicle       Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+}

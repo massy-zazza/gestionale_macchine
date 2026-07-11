@@ -4,15 +4,26 @@ Progetto ricreato direttamente in:
 
 `/Users/massimilianozaniboni/web_app/gestionale_macchine`
 
-Questa versione e pensata per pubblicazione su Streamlit Community Cloud con database Supabase.
+Questa cartella contiene sia la web app Next.js locale completa sia la versione Streamlit pensata per pubblicazione su Streamlit Community Cloud con database Supabase.
 
 ## File principali
 
 - `streamlit_app.py`: applicazione Streamlit
 - `requirements.txt`: dipendenze Python per Streamlit Cloud
+- `src/`: applicazione Next.js locale
+- `prisma/`: schema SQLite locale e seed demo
 - `supabase/schema.sql`: schema Postgres per Supabase
 - `supabase/seed.sql`: dati demo
 - `.streamlit/secrets.toml.example`: template secrets
+
+## Avvio Next.js locale
+
+```bash
+pnpm install
+pnpm db:migrate
+pnpm db:seed
+pnpm dev
+```
 
 ## Setup Supabase
 
