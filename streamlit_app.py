@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hmac
+import os
 from datetime import date, datetime
 from typing import Any
 
@@ -11,6 +12,10 @@ from supabase import Client, create_client
 
 
 st.set_page_config(page_title="Gestionale Macchine", page_icon="auto", layout="wide")
+
+
+def get_secret(name: str) -> str:
+    return st.secrets.get(name) or os.environ.get(name, "")
 
 
 def cents_to_euro(cents: int | float | None) -> float:
@@ -34,7 +39,7 @@ def money(cents: int | float | None) -> str:
 
 
 def check_password() -> bool:
-    expected = st.secrets.get("APP_PASSWORD", "")
+    expected = get_secret("APP_PASSWORD")
     if not expected:
         st.error("Configura APP_PASSWORD nei secrets di Streamlit.")
         return False
@@ -52,8 +57,8 @@ def check_password() -> bool:
 
 @st.cache_resource
 def supabase_client() -> Client:
-    url = st.secrets.get("SUPABASE_URL")
-    key = st.secrets.get("SUPABASE_SERVICE_ROLE_KEY")
+    url = get_secret("SUPABASE_URL")
+    key = get_secret("SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:
         st.error("Configura SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY nei secrets di Streamlit.")
         st.stop()

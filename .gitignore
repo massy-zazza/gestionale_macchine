@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 .DS_Store
 .venv/
+supabase/.temp/
 node_modules/
 .next/
 out/
