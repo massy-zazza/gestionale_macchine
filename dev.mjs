@@ -1,0 +1,3 @@
+import http from 'node:http';
+import worker from './dist/server/index.js';
+http.createServer(async(req,res)=>{try{const chunks=[];for await(const c of req)chunks.push(c);const headers=new Headers(req.headers);headers.set('oai-authenticated-user-id','local-preview');const request=new Request('http://127.0.0.1:8766'+req.url,{method:req.method,headers,body:['GET','HEAD'].includes(req.method)?undefined:Buffer.concat(chunks)});const result=await worker.fetch(request,process.env);res.writeHead(result.status,Object.fromEntries(result.headers));res.end(Buffer.from(await result.arrayBuffer()))}catch{res.writeHead(500);res.end('Errore locale')}}).listen(8766,'127.0.0.1',()=>console.log('http://127.0.0.1:8766'));

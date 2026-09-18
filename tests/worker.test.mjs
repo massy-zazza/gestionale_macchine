@@ -1,0 +1,10 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import worker,{payload} from '../dist/server/index.js';
+const vehicle_id='11111111-1111-4111-8111-111111111111';
+const refuel={vehicle_id,date:'2026-09-18',odometer_km:50000,payment_method:'Carta',liters_ml:40000,total_cents:7200,full_tank:true};
+test('fuel price is calculated server-side and cannot be overridden',()=>{assert.equal(payload('refuels',{...refuel,price_per_liter_milli_cents:1}).price_per_liter_milli_cents,180000)});
+test('rejects invalid amounts, dates, mileage and zero liters',()=>{for(const change of [{liters_ml:0},{total_cents:-1},{odometer_km:-1},{date:'2026-02-31'}])assert.throws(()=>payload('refuels',{...refuel,...change}))});
+test('rejects anonymous database access',async()=>{const response=await worker.fetch(new Request('https://garage.example/api/data'),{});assert.equal(response.status,401)});
+test('rejects cross-origin mutation',async()=>{const response=await worker.fetch(new Request('https://garage.example/api/refuels',{method:'POST',headers:{'oai-authenticated-user-id':'owner',Origin:'https://other.example'},body:JSON.stringify(refuel)}),{});assert.equal(response.status,403)});
+test('prevents arbitrary table access and vehicle deletion',async()=>{for(const path of ['unknown/'+vehicle_id,'vehicles/'+vehicle_id]){const response=await worker.fetch(new Request('https://garage.example/api/'+path,{method:'DELETE',headers:{'oai-authenticated-user-id':'owner',Origin:'https://garage.example'}}),{});assert.equal(response.status,400)}});
