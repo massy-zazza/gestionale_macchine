@@ -1,3 +1,4 @@
+import { normalizeDate } from './date.mjs';
 const reply=(message:string,status=200,extra:Record<string,unknown>={})=>new Response(JSON.stringify({message,...extra}),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
 const invalid=(message:string)=>{throw Object.assign(new Error(message),{status:400})};
 function text(value:unknown,label:string,required=true){const s=String(value??'').trim();if(s.length>500||required&&!s)invalid('Controlla '+label);return s}
@@ -17,7 +18,7 @@ Deno.serve(async(req:Request)=>{
     if(!b||typeof b!=='object'||Array.isArray(b))return reply('Dati non validi',400);
     if(b.operation==='check')return reply('Collegamento al garage verificato');
     if(!['refuel','maintenance','telepass','expense'].includes(b.type))return reply('Tipo di spesa non valido',400);
-    const day=text(b.date,'data');if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||!Number.isFinite(Date.parse(day))||new Date(day).toISOString().slice(0,10)!==day)invalid('Data non valida');
+    let day:string;try{day=normalizeDate(text(b.date,'data'))}catch(e){invalid((e as Error).message)}
     const requestId=text(b.request_id,'identificativo');if(requestId.length<12)invalid('Identificativo non valido');
     const digest=await hash(tokenHash+'|'+b.type+'|'+requestId);
     const id=digest.slice(0,8)+'-'+digest.slice(8,12)+'-4'+digest.slice(13,16)+'-a'+digest.slice(17,20)+'-'+digest.slice(20,32);

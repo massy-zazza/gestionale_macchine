@@ -5,6 +5,11 @@ Telepass e altre spese alla funzione Supabase `garage-shortcut`.
 Il prezzo al litro viene calcolato dal server usando importo e litri.
 Telepass richiede soltanto data e importo.
 
+Le date accettano ISO, GG/MM/AAAA e mesi italiani scritti per esteso o
+abbreviati. La versione aggiornata del comando chiede esplicitamente
+GG/MM/AAAA per evitare conversioni dipendenti dalle impostazioni Apple.
+Verifica locale: `node --test integrations/shortcut/date.test.mjs`.
+
 ## File personali
 
 `build_shortcut.py` genera il plist del comando e una chiave casuale in
@@ -33,3 +38,5 @@ gli ID da eliminare dopo la prova sono salvati in
 Verificati il 18 settembre 2026: autenticazione, rifiuto importi negativi,
 inserimento dei quattro tipi e retry senza duplicati. Dati di prova rimossi.
 Il test interattivo del comando richiede che l'utente completi l'importazione.
+Correzione del 3 ottobre 2026: normalizzazione delle date pubblicata e
+verificata sul servizio con richieste che non creano registrazioni.
