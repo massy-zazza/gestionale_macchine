@@ -54,12 +54,15 @@ def choose(prompt, items):
                   WFChooseFromListActionSelectMultiple=False, CustomOutputName=prompt)
 
 def date_format(value, pattern):
-    return action("format.date", WFDate=text(value),
-                  WFDateFormatStyle="Custom", WFDateFormat="Custom", WFDateFormatString=pattern,
-                  WFTimeFormatStyle="None", CustomOutputName="Data formattata")
+    return {**value, "Aggrandizements": [
+        {"Type": "WFCoercionVariableAggrandizement", "CoercionItemClass": "WFDateContentItem"},
+        {"Type": "WFDateFormatVariableAggrandizement", "WFDateFormatStyle": "Custom",
+         "WFDateFormat": pattern, "WFISO8601IncludeTime": False}]}
 
 action("comment", WFCommentActionText="Aggiunge una voce al tuo garage BMW. Il collegamento consente solo nuovi inserimenti. Non condividere questo comando, che contiene la tua chiave personale.")
-request_id = date_format({"Type": "CurrentDate"}, "yyyy-MM-dd'T'HH:mm:ss.SSSXXXXX")
+request_id = action("gettext", WFTextActionText=text(date_format(
+    {"Type": "CurrentDate"}, "yyyy-MM-dd'T'HH:mm:ss.SSSXXXXX")),
+    CustomOutputName="Identificativo inserimento")
 group = str(uuid.uuid4()).upper()
 menu = ["Rifornimento", "Manutenzione", "Telepass", "Altra spesa"]
 action("choosefrommenu", WFControlFlowMode=0, GroupingIdentifier=group,
