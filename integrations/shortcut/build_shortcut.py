@@ -45,7 +45,7 @@ def ask(prompt, kind="Text"):
     params = {"WFAskActionPrompt": prompt, "WFInputType": kind,
               "CustomOutputName": prompt, "WFAskActionAllowsMultiline": False}
     if kind == "Date":
-        params["WFAskActionDefaultAnswer"] = variable({"Type": "CurrentDate"})
+        params["WFAskActionDefaultAnswer"] = text({"Type": "CurrentDate"})
     return action("ask", **params)
 
 def choose(prompt, items):
@@ -54,7 +54,7 @@ def choose(prompt, items):
                   WFChooseFromListActionSelectMultiple=False, CustomOutputName=prompt)
 
 def date_format(value, pattern):
-    return action("format.date", WFDate=variable(value), WFInput=variable(value),
+    return action("format.date", WFDate=text(value),
                   WFDateFormatStyle="Custom", WFDateFormat="Custom", WFDateFormatString=pattern,
                   WFTimeFormatStyle="None", CustomOutputName="Data formattata")
 
