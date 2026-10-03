@@ -6,8 +6,8 @@ Il prezzo al litro viene calcolato dal server usando importo e litri.
 Telepass richiede soltanto data e importo.
 
 Le date accettano ISO, GG/MM/AAAA e mesi italiani scritti per esteso o
-abbreviati. La versione aggiornata del comando chiede esplicitamente
-GG/MM/AAAA per evitare conversioni dipendenti dalle impostazioni Apple.
+abbreviati. Il comando usa il selettore data nativo Apple e converte
+la data scelta in ISO prima di inviarla.
 Verifica locale: `node --test integrations/shortcut/date.test.mjs`.
 
 ## File personali

@@ -66,7 +66,7 @@ action("choosefrommenu", WFControlFlowMode=0, GroupingIdentifier=group,
        WFMenuPrompt="Cosa vuoi aggiungere al garage?", WFMenuItems=menu)
 for title, kind in zip(menu, ["refuel", "maintenance", "telepass", "expense"]):
     action("choosefrommenu", WFControlFlowMode=1, GroupingIdentifier=group, WFMenuItemTitle=title)
-    date = ask("Data della spesa (GG/MM/AAAA, es. 03/10/2026)")
+    date = date_format(ask("Data della spesa", "Date"), "yyyy-MM-dd")
     amount = ask("Importo speso in euro", "Number")
     body = {"type": kind, "request_id": request_id, "date": date, "amount": amount}
     if kind == "refuel":
