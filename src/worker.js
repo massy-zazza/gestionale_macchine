@@ -1,4 +1,4 @@
-const tables=['vehicles','expense_categories','refuels','expenses','maintenances','reminders','payment_methods'];
+const tables=['vehicles','expense_categories','refuels','expenses','maintenances','reminders','payment_methods','university_trips','university_reimbursements'];
 const writable=tables.filter(t=>t!=='expense_categories');
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
@@ -12,15 +12,23 @@ export function payload(table,b){
   if(table==='vehicles')return{make:str(b.make,'marca',true),model:str(b.model,'modello',true),plate:str(b.plate,'targa'),year:number(b.year,'anno',1900,true,2100),fuel_type:str(b.fuel_type,'carburante',true),initial_mileage_km:number(b.initial_mileage_km,'chilometri iniziali',0,true),notes:str(b.notes,'note')};
   if(!uuid.test(b.vehicle_id))bad('Auto non valida');
   const common={vehicle_id:b.vehicle_id,notes:str(b.notes,'note')};
+  if(table==='university_reimbursements')return {...common,date:date(b.date),amount_cents:number(b.amount_cents,'rimborso',1,true)};
+  if(table==='university_trips'){
+    const distance_km=number(b.distance_km,'chilometri percorsi',0.1,false,10000),consumption=number(b.consumption,'consumo medio',0.01,false,1000);
+    if(!['l100km','kml'].includes(b.consumption_unit))bad('Unita consumo non valida');
+    const liters= b.consumption_unit==='l100km'?distance_km*consumption/100:distance_km/consumption;
+    const fuel_price_cents=number(b.fuel_price_cents,'prezzo benzina',1,false,10000);
+    return {...common,date:date(b.date),entry_station:str(b.entry_station,'entrata',true),exit_station:str(b.exit_station,'uscita',true),distance_km,consumption,consumption_unit:b.consumption_unit,fuel_price_cents,liters_ml:Math.max(1,Math.round(liters*1000)),fuel_cost_cents:Math.round(liters*fuel_price_cents)};
+  }
   if(table==='reminders')return{...common,title:str(b.title,'titolo',true),due_date:date(b.due_date),due_mileage_km:b.due_mileage_km===''||b.due_mileage_km==null?null:number(b.due_mileage_km,'chilometri scadenza',0,true),status:b.status==='COMPLETATA'?'COMPLETATA':'FUTURA',periodicity:['NESSUNA','MENSILE','ANNUALE','BIENNALE'].includes(b.periodicity)?b.periodicity:'NESSUNA'};
-  const km=number(b.odometer_km,'chilometri',0,true);
+  const km=table==='expenses'&&(b.odometer_km===''||b.odometer_km==null)?null:number(b.odometer_km,'chilometri',0,true);
   const result={...common,date:date(b.date)+'T12:00:00Z',odometer_km:km,payment_method:str(b.payment_method,'pagamento',true)};
   if(table==='refuels'){
     const liters_ml=number(b.liters_ml,'litri',1,true,1000000),total_cents=number(b.total_cents,'importo',1,true,100000000);
     const price=Math.round(total_cents*1000000/liters_ml);if(price>2000000000)bad('Prezzo al litro non valido');
     return{...result,liters_ml,total_cents,price_per_liter_milli_cents:price,station:str(b.station,'distributore'),location:str(b.location,'localita'),full_tank:b.full_tank===true,fuel_type:'BENZINA'};
   }
-  if(table==='expenses'){if(!uuid.test(b.category_id))bad('Categoria non valida');return{...result,category_id:b.category_id,description:str(b.description,'descrizione',true),amount_cents:number(b.amount_cents,'importo',1,true),supplier:str(b.supplier,'fornitore')}}
+  if(table==='expenses'){if(!uuid.test(b.category_id))bad('Categoria non valida');if(b.university_trip_id&&!uuid.test(b.university_trip_id))bad('Viaggio non valido');return{...result,university_trip_id:b.university_trip_id||null,category_id:b.category_id,description:str(b.description,'descrizione',true),amount_cents:number(b.amount_cents,'importo',1,true),supplier:str(b.supplier,'fornitore')}}
   if(table==='maintenances')return{...result,type:str(b.type,'tipo',true),description:str(b.description,'descrizione',true),cost_cents:number(b.cost_cents,'importo',0,true),workshop:str(b.workshop,'officina')};
   bad('Operazione non valida');
 }
@@ -50,6 +58,11 @@ export default{async fetch(request,env){
       if(table==='vehicles'&&request.method!=='PATCH')return json({error:'Auto non modificabile.'},400);
       const text=await request.text();if(text.length>16000)return json({error:'Dati troppo lunghi.'},413);
       const body=payload(table,JSON.parse(text));
+      if(table==='expenses'&&body.university_trip_id){
+        const trips=await db(env,'university_trips?id=eq.'+body.university_trip_id+'&vehicle_id=eq.'+body.vehicle_id+'&select=id');
+        const categories=await db(env,'expense_categories?id=eq.'+body.category_id+'&select=name');
+        if(!trips.length||!categories.some(c=>/pedagg|telepass|autostrad/i.test(c.name)))bad('Puoi collegare soltanto un pedaggio a un viaggio della stessa auto.');
+      }
       const rows=await db(env,table+(id?'?id=eq.'+id:''),request.method,body);
       return rows.length?json(rows[0]):json({error:'Voce non trovata.'},404);
     }
