@@ -1,0 +1,21 @@
+:root{color-scheme:light}
+.header-controls{display:flex;align-items:center;gap:12px;flex-shrink:0}
+#theme-toggle{width:36px;height:36px;padding:8px;align-items:center;justify-content:center}
+header>span:first-child{min-width:0}
+[data-theme="dark"]{color-scheme:dark;color:#edf0f4;background:#141516;--blue:#84a5ff;--line:#393d43;--muted:#a7adb5}
+[data-theme="dark"] aside,[data-theme="dark"] header,[data-theme="dark"] .stats,[data-theme="dark"] dialog,[data-theme="dark"] .table,[data-theme="dark"] .icon-button,[data-theme="dark"] .secondary,[data-theme="dark"] .mini-actions button{background:#1e2023;color:#edf0f4}
+[data-theme="dark"] nav button{color:#b7bdc6}
+[data-theme="dark"] nav button.active{background:#2d3549;color:#b2c5ff}
+[data-theme="dark"] .primary{background:#416edb;color:#fff}
+[data-theme="dark"] .period button.selected{background:#dce1e9;color:#17191c}
+[data-theme="dark"] .fields input,[data-theme="dark"] .fields select,[data-theme="dark"] .fields textarea,[data-theme="dark"] .toolbar select,[data-theme="dark"] input[type="month"]{background:#24272c;border-color:#484e56;color:#edf0f4}
+[data-theme="dark"] .result,[data-theme="dark"] .badge.done{background:#203b2e;color:#a5e2ba}
+[data-theme="dark"] .empty-icon{background:#2d3549;color:#b2c5ff}
+[data-theme="dark"] .preview{border-color:#4c5b79;color:#b2c5ff}
+[data-theme="dark"] .danger,[data-theme="dark"] #form-error,[data-theme="dark"] dialog [role="alert"]{color:#ffa8ae!important}
+[data-theme="dark"] .badge,[data-theme="dark"] .error-box{background:#44272c;color:#ffc1c6;border-color:#6e424a}
+[data-theme="dark"] .toast{background:#e3e7ee;color:#17191c}
+.net-bar-area{height:160px;width:100%;position:relative;border-bottom:0;flex-shrink:0}
+.net-bar-area:before{content:"";position:absolute;top:50%;left:0;right:0;border-top:1px solid var(--line)}
+.net-bar-area .bar{position:absolute;left:17.5%;width:65%}
+@media(max-width:720px){.header-controls .preview{display:none}header>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.header-controls{gap:0}[data-theme="dark"] nav button.active{background:#1e2023}.bar-value{overflow-wrap:anywhere;text-align:center}}
