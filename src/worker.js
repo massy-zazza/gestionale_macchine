@@ -12,13 +12,16 @@ export function payload(table,b){
   if(table==='vehicles')return{make:str(b.make,'marca',true),model:str(b.model,'modello',true),plate:str(b.plate,'targa'),year:number(b.year,'anno',1900,true,2100),fuel_type:str(b.fuel_type,'carburante',true),initial_mileage_km:number(b.initial_mileage_km,'chilometri iniziali',0,true),notes:str(b.notes,'note')};
   if(!uuid.test(b.vehicle_id))bad('Auto non valida');
   const common={vehicle_id:b.vehicle_id,notes:str(b.notes,'note')};
-  if(table==='university_reimbursements')return {...common,date:date(b.date),amount_cents:number(b.amount_cents,'rimborso',1,true)};
+  if(table==='university_reimbursements'){
+    if(!uuid.test(b.trip_id))bad('Seleziona il viaggio rimborsato');
+    return {...common,date:date(b.date),received_date:date(b.received_date),trip_id:b.trip_id,amount_cents:number(b.amount_cents,'rimborso',1,true)};
+  }
   if(table==='university_trips'){
     const distance_km=number(b.distance_km,'chilometri percorsi',0.1,false,10000),consumption=number(b.consumption,'consumo medio',0.01,false,1000);
     if(!['l100km','kml'].includes(b.consumption_unit))bad('Unita consumo non valida');
     const liters= b.consumption_unit==='l100km'?distance_km*consumption/100:distance_km/consumption;
     const fuel_price_cents=number(b.fuel_price_cents,'prezzo benzina',1,false,10000);
-    return {...common,date:date(b.date),entry_station:str(b.entry_station,'entrata',true),exit_station:str(b.exit_station,'uscita',true),distance_km,consumption,consumption_unit:b.consumption_unit,fuel_price_cents,liters_ml:Math.max(1,Math.round(liters*1000)),fuel_cost_cents:Math.round(liters*fuel_price_cents)};
+    return {...common,date:date(b.date),entry_station:str(b.entry_station,'entrata'),exit_station:str(b.exit_station,'uscita'),distance_km,consumption,consumption_unit:b.consumption_unit,fuel_price_cents,liters_ml:Math.max(1,Math.round(liters*1000)),fuel_cost_cents:Math.round(liters*fuel_price_cents)};
   }
   if(table==='reminders')return{...common,title:str(b.title,'titolo',true),due_date:date(b.due_date),due_mileage_km:b.due_mileage_km===''||b.due_mileage_km==null?null:number(b.due_mileage_km,'chilometri scadenza',0,true),status:b.status==='COMPLETATA'?'COMPLETATA':'FUTURA',periodicity:['NESSUNA','MENSILE','ANNUALE','BIENNALE'].includes(b.periodicity)?b.periodicity:'NESSUNA'};
   const km=table==='expenses'&&(b.odometer_km===''||b.odometer_km==null)?null:number(b.odometer_km,'chilometri',0,true);
@@ -57,7 +60,17 @@ export default{async fetch(request,env){
       if(!['POST','PATCH'].includes(request.method)||request.method==='PATCH'&&!id||request.method==='POST'&&id)return json({error:'Operazione non consentita.'},405);
       if(table==='vehicles'&&request.method!=='PATCH')return json({error:'Auto non modificabile.'},400);
       const text=await request.text();if(text.length>16000)return json({error:'Dati troppo lunghi.'},413);
-      const body=payload(table,JSON.parse(text));
+      const input=JSON.parse(text),body=payload(table,input);
+      if(table==='university_reimbursements'){
+        const trips=await db(env,'university_trips?id=eq.'+body.trip_id+'&vehicle_id=eq.'+body.vehicle_id+'&select=date');
+        if(!trips.length)bad('Viaggio non valido per questa auto');
+        body.date=trips[0].date;
+      }
+      if(table==='university_trips'){
+        if(input.toll_id&&!uuid.test(input.toll_id))bad('Pedaggio non valido');
+        const rows=await db(env,'rpc/save_university_trip','POST',{p_id:id||null,p_trip:body,p_toll_id:input.toll_id||null});
+        return rows.length?json(rows[0]):json({error:'Viaggio non trovato.'},404);
+      }
       if(table==='expenses'&&body.university_trip_id){
         const trips=await db(env,'university_trips?id=eq.'+body.university_trip_id+'&vehicle_id=eq.'+body.vehicle_id+'&select=id');
         const categories=await db(env,'expense_categories?id=eq.'+body.category_id+'&select=name');
